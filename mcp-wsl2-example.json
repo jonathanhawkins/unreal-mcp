@@ -1,0 +1,22 @@
+{
+  "mcpServers": {
+    "unrealMCP": {
+      "command": "bash",
+      "args": ["/mnt/c/Dev/unreal-mcp/Python/start_mcp.sh"],
+      "env": {
+        "UNREAL_HOST": "YOUR_WINDOWS_IP_HERE",
+        "UNREAL_PORT": "55557"
+      }
+    }
+  },
+  "_comment": "WSL2 Configuration Example",
+  "_instructions": [
+    "1. Replace YOUR_WINDOWS_IP_HERE with your actual Windows IP",
+    "2. To find your Windows IP:",
+    "   - From WSL2: cat /etc/resolv.conf | grep nameserver",
+    "   - Or from Windows: ipconfig (use your LAN IPv4 address)",
+    "3. Make sure Unreal is started with: -UnrealMCPBind=0.0.0.0",
+    "4. Ensure Windows Firewall allows port 55557",
+    "5. Update the path in 'args' to match your installation"
+  ]
+}

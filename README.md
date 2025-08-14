@@ -86,6 +86,35 @@ For getting started quickly, feel free to use the starter project in `MCPGamePro
    - Choose `Development Editor` as your target.
    - Build
 
+### Starting Unreal Editor
+
+#### Normal Start (Local connections only)
+Simply open the project normally through Epic Games Launcher or by double-clicking the .uproject file.
+
+#### For WSL2 or Remote Connections
+You MUST start Unreal with special command-line arguments to allow external connections:
+
+**PowerShell:**
+```powershell
+# Define paths (adjust to your installation)
+$ue = "C:\Program Files\Epic Games\UE_5.6\Engine\Binaries\Win64\UnrealEditor.exe"
+$proj = "C:\Dev\UEFN\temp\unreal-mcp\MCPGameProject\MCPGameProject.uproject"
+
+# Start with network binding to all interfaces
+& "$ue" "$proj" -UnrealMCPBind="0.0.0.0" -UnrealMCPPort=55557
+```
+
+**Command Prompt:**
+```cmd
+"C:\Program Files\Epic Games\UE_5.6\Engine\Binaries\Win64\UnrealEditor.exe" "C:\Dev\UEFN\temp\unreal-mcp\MCPGameProject\MCPGameProject.uproject" -UnrealMCPBind=0.0.0.0 -UnrealMCPPort=55557
+```
+
+**Important Notes:**
+- `-UnrealMCPBind=0.0.0.0` makes Unreal listen on all network interfaces (not just localhost)
+- This is REQUIRED for WSL2 connections (WSL2 cannot access Windows localhost)
+- Only use these flags if connecting from WSL2 or another machine
+- Default port is 55557 (can be changed with `-UnrealMCPPort`)
+
 ### Plugin
 Otherwise, if you want to use the plugin in your existing project:
 
@@ -113,7 +142,8 @@ See [Python/README.md](Python/README.md) for detailed Python setup instructions,
 
 ### Configuring your MCP Client
 
-Use the following JSON for your mcp configuration based on your MCP client.
+#### Standard Configuration (Windows/Mac/Linux)
+Use the following JSON for your mcp configuration:
 
 ```json
 {
@@ -126,6 +156,49 @@ Use the following JSON for your mcp configuration based on your MCP client.
         "run",
         "unreal_mcp_server.py"
       ]
+    }
+  }
+}
+```
+
+#### WSL2 Configuration
+If running the MCP server in WSL2 while Unreal runs on Windows, you need to specify the Windows host IP:
+
+```json
+{
+  "mcpServers": {
+    "unrealMCP": {
+      "command": "bash",
+      "args": ["/path/to/unreal-mcp/Python/start_mcp.sh"],
+      "env": {
+        "UNREAL_HOST": "192.168.1.106",  // Replace with YOUR Windows IP
+        "UNREAL_PORT": "55557"
+      }
+    }
+  }
+}
+```
+
+**To find your Windows IP for WSL2:**
+1. From WSL2, run: `cat /etc/resolv.conf | grep nameserver`
+2. Or use your Windows LAN IP: `ipconfig` (from Windows) and look for your IPv4 address
+
+**Alternative WSL2 configuration using direct command:**
+```json
+{
+  "mcpServers": {
+    "unrealMCP": {
+      "command": "uv",
+      "args": [
+        "--directory",
+        "/mnt/c/Dev/unreal-mcp/Python",  // WSL path format
+        "run",
+        "unreal_mcp_server.py"
+      ],
+      "env": {
+        "UNREAL_HOST": "192.168.1.106",  // Your Windows IP
+        "UNREAL_PORT": "55557"
+      }
     }
   }
 }
