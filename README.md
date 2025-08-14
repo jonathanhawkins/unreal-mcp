@@ -30,7 +30,7 @@ The Unreal MCP integration provides comprehensive tools for controlling Unreal E
 | **Actor Management** | • Create and delete actors (cubes, spheres, lights, cameras, etc.)<br>• Set actor transforms (position, rotation, scale)<br>• Query actor properties and find actors by name<br>• List all actors in the current level |
 | **Blueprint Development** | • Create new Blueprint classes with custom components<br>• Add and configure components (mesh, camera, light, etc.)<br>• Set component properties and physics settings<br>• Compile Blueprints and spawn Blueprint actors<br>• Create input mappings for player controls |
 | **Blueprint Node Graph** | • Add event nodes (BeginPlay, Tick, etc.)<br>• Create function call nodes and connect them<br>• Add variables with custom types and default values<br>• Create component and self references<br>• Find and manage nodes in the graph |
-| **Editor Control** | • Focus viewport on specific actors or locations<br>• Control viewport camera orientation and distance |
+| **Editor Control** | • Focus viewport on specific actors or locations<br>• Control viewport camera orientation and distance<br>• Take screenshots of the viewport with configurable resolution |
 
 All these capabilities are accessible through natural language commands via AI assistants, making it easy to automate and control Unreal Engine workflows.
 
@@ -219,6 +219,33 @@ Depending on which MCP client you're using, the configuration file location will
 Each client uses the same JSON format as shown in the example above. 
 Simply place the configuration in the appropriate location for your MCP client.
 
+
+## Example MCP Usage
+
+Once configured, you can use natural language commands in your MCP client:
+
+### Creating Actors with Meshes
+```
+"Create a cube at position 0,0,100"
+"Spawn a sphere at 200,0,100" 
+"Add a cylinder mesh actor"
+```
+The actors will now appear with proper meshes (previously they were invisible).
+
+### Taking Screenshots
+```
+"Take a screenshot of the viewport"
+"Capture the current scene"
+"Take a high-res screenshot at 4K resolution"
+```
+Screenshots are saved to the Unreal project's Screenshots folder.
+
+### Blueprint Creation
+```
+"Create a new Blueprint called MyCharacter"
+"Add a static mesh component to the Blueprint"
+"Set the mesh to a cube"
+```
 
 ## License
 MIT
