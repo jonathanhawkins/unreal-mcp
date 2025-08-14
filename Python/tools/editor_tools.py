@@ -81,7 +81,8 @@ def register_editor_tools(mcp: FastMCP):
         name: str,
         type: str,
         location: List[float] = [0.0, 0.0, 0.0],
-        rotation: List[float] = [0.0, 0.0, 0.0]
+        rotation: List[float] = [0.0, 0.0, 0.0],
+        static_mesh: str = None
     ) -> Dict[str, Any]:
         """Create a new actor in the current level.
         
@@ -91,6 +92,7 @@ def register_editor_tools(mcp: FastMCP):
             type: The type of actor to create (e.g. StaticMeshActor, PointLight)
             location: The [x, y, z] world location to spawn at
             rotation: The [pitch, yaw, roll] rotation in degrees
+            static_mesh: Optional path to static mesh for StaticMeshActor (e.g. /Engine/BasicShapes/Cube.Cube)
             
         Returns:
             Dict containing the created actor's properties
@@ -110,6 +112,10 @@ def register_editor_tools(mcp: FastMCP):
                 "location": location,
                 "rotation": rotation
             }
+            
+            # Add static_mesh parameter if provided
+            if static_mesh:
+                params["static_mesh"] = static_mesh
             
             # Validate location and rotation formats
             for param_name in ["location", "rotation"]:
@@ -366,4 +372,53 @@ def register_editor_tools(mcp: FastMCP):
             logger.error(error_msg)
             return {"success": False, "message": error_msg}
 
+    @mcp.tool()
+    def take_screenshot(
+        ctx: Context,
+        filename: str,
+        show_ui: bool = False,
+        resolution: List[int] = None
+    ) -> Dict[str, Any]:
+        """Take a screenshot of the current viewport.
+        
+        Args:
+            ctx: The MCP context
+            filename: Name for the screenshot file (without extension)
+            show_ui: Whether to include UI in the screenshot
+            resolution: Optional [width, height] for the screenshot
+            
+        Returns:
+            Dict containing screenshot information
+        """
+        from unreal_mcp_server import get_unreal_connection
+        
+        try:
+            unreal = get_unreal_connection()
+            if not unreal:
+                logger.error("Failed to connect to Unreal Engine")
+                return {"success": False, "message": "Failed to connect to Unreal Engine"}
+            
+            params = {
+                "filename": filename,
+                "show_ui": show_ui
+            }
+            
+            if resolution:
+                if isinstance(resolution, list) and len(resolution) == 2:
+                    params["resolution"] = resolution
+            
+            logger.info(f"Taking screenshot: {filename}")
+            response = unreal.send_command("take_screenshot", params)
+            
+            if not response:
+                logger.error("No response from Unreal Engine")
+                return {"success": False, "message": "No response from Unreal Engine"}
+            
+            return response
+            
+        except Exception as e:
+            error_msg = f"Error taking screenshot: {e}"
+            logger.error(error_msg)
+            return {"success": False, "message": error_msg}
+    
     logger.info("Editor tools registered successfully")

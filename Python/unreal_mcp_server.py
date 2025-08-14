@@ -24,8 +24,9 @@ logging.basicConfig(
 logger = logging.getLogger("UnrealMCP")
 
 # Configuration
-UNREAL_HOST = "127.0.0.1"
-UNREAL_PORT = 55557
+import os
+UNREAL_HOST = os.environ.get("UNREAL_HOST", "127.0.0.1")  # Default to localhost, override with env var for WSL2
+UNREAL_PORT = int(os.environ.get("UNREAL_PORT", "55557"))
 
 class UnrealConnection:
     """Connection to an Unreal Engine instance."""

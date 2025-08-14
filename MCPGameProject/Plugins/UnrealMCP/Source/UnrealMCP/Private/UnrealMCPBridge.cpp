@@ -59,7 +59,10 @@
 #include "Commands/UnrealMCPUMGCommands.h"
 
 // Default settings
-#define MCP_SERVER_HOST "127.0.0.1"
+// FIX: Changed from "127.0.0.1" to "0.0.0.0" to allow connections from all network interfaces
+// This enables WSL2 and remote connections to connect to the Unreal MCP server
+// Previously only localhost connections were possible
+#define MCP_SERVER_HOST "0.0.0.0"  // Bind to all interfaces (was "127.0.0.1")
 #define MCP_SERVER_PORT 55557
 
 UUnrealMCPBridge::UUnrealMCPBridge()

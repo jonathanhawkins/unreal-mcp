@@ -184,6 +184,41 @@ TSharedPtr<FJsonObject> FUnrealMCPEditorCommands::HandleSpawnActor(const TShared
     if (ActorType == TEXT("StaticMeshActor"))
     {
         NewActor = World->SpawnActor<AStaticMeshActor>(AStaticMeshActor::StaticClass(), Location, Rotation, SpawnParams);
+        
+        // FIX: Set the static mesh on StaticMeshActor after creation
+        // Previously, StaticMeshActors were created without any mesh assigned, making them invisible
+        // This fix adds support for the "static_mesh" parameter and defaults to cube if not specified
+        if (NewActor)
+        {
+            AStaticMeshActor* MeshActor = Cast<AStaticMeshActor>(NewActor);
+            if (MeshActor && MeshActor->GetStaticMeshComponent())
+            {
+                // Check if a static_mesh parameter was provided (e.g., "/Engine/BasicShapes/Cube.Cube")
+                FString MeshPath;
+                if (Params->TryGetStringField(TEXT("static_mesh"), MeshPath))
+                {
+                    // Load the specified mesh from the provided path
+                    UStaticMesh* Mesh = LoadObject<UStaticMesh>(nullptr, *MeshPath);
+                    if (Mesh)
+                    {
+                        MeshActor->GetStaticMeshComponent()->SetStaticMesh(Mesh);
+                    }
+                    else
+                    {
+                        UE_LOG(LogTemp, Warning, TEXT("Failed to load mesh: %s"), *MeshPath);
+                    }
+                }
+                else
+                {
+                    // Default to cube mesh if no mesh specified - ensures actors are always visible
+                    UStaticMesh* CubeMesh = LoadObject<UStaticMesh>(nullptr, TEXT("/Engine/BasicShapes/Cube.Cube"));
+                    if (CubeMesh)
+                    {
+                        MeshActor->GetStaticMeshComponent()->SetStaticMesh(CubeMesh);
+                    }
+                }
+            }
+        }
     }
     else if (ActorType == TEXT("PointLight"))
     {
