@@ -4,9 +4,13 @@
       "command": "uv",
       "args": [
         "--directory",
-        "absolute/path/to/this/repository/Python",
+        "/mnt/c/Dev/UEFN/temp/unreal-mcp/Python",
         "run",
-        "unreal_mcp_server.py"
+        "unreal_mcp_server.py",
+        "--unreal_host",
+        "192.168.1.106",
+        "--unreal_port",
+        "55557"
       ]
     }
   }

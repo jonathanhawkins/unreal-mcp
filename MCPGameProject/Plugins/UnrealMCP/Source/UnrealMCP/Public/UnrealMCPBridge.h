@@ -13,6 +13,10 @@
 #include "Commands/UnrealMCPBlueprintNodeCommands.h"
 #include "Commands/UnrealMCPProjectCommands.h"
 #include "Commands/UnrealMCPUMGCommands.h"
+// Include the new reorganized command handlers
+#include "Commands/Editor/LevelEditor/UnrealMCPLevelCommands.h"
+#include "Commands/Editor/Landscape/UnrealMCPLandscapeCommands.h"
+#include "Commands/Engine/World/UnrealMCPWorldCommands.h"
 #include "UnrealMCPBridge.generated.h"
 
 class FMCPServerRunnable;
@@ -61,4 +65,8 @@ private:
 	TSharedPtr<FUnrealMCPBlueprintNodeCommands> BlueprintNodeCommands;
 	TSharedPtr<FUnrealMCPProjectCommands> ProjectCommands;
 	TSharedPtr<FUnrealMCPUMGCommands> UMGCommands;
+	// New reorganized command handlers
+	TSharedPtr<FUnrealMCPLevelCommands> LevelCommands;
+	TSharedPtr<FUnrealMCPLandscapeCommands> LandscapeCommands;
+	TSharedPtr<FUnrealMCPWorldCommands> WorldCommands;
 }; 

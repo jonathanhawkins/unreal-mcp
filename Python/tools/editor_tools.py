@@ -399,7 +399,7 @@ def register_editor_tools(mcp: FastMCP):
                 return {"success": False, "message": "Failed to connect to Unreal Engine"}
             
             params = {
-                "filename": filename,
+                "filepath": filename,
                 "show_ui": show_ui
             }
             

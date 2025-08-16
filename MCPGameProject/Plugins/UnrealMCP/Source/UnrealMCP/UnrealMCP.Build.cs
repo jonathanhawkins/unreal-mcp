@@ -51,7 +51,12 @@ public class UnrealMCP : ModuleRules
 				"KismetCompiler",
 				"BlueprintGraph",
 				"Projects",
-				"AssetRegistry"
+				"AssetRegistry",
+				"Landscape",
+				"LandscapeEditor",
+				"LevelEditor",
+				"EditorWidgets",
+				"Foliage"
 			}
 		);
 		

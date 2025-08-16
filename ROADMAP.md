@@ -10,6 +10,34 @@ Create the most comprehensive Unreal Engine MCP integration by aggregating the b
 - Blueprint creation and compilation
 - Node graph manipulation
 
+## Phase 0: Claude Terminal Integration (Priority)
+
+### 0.1 Terminal Foundation
+- [ ] **Claude Terminal Plugin** - Native UE5 editor window with terminal
+- [ ] **UltraTerm Integration** - Professional terminal rendering with ANSI support
+- [ ] **Process Management** - Spawn/control Claude Code process (Windows/WSL2)
+- [ ] **Bidirectional Communication** - Pipe-based I/O with Claude
+- [ ] **Session Persistence** - Save/restore terminal sessions
+
+### 0.2 Context-Aware Integration
+- [ ] **Blueprint Context Provider** - Pass current Blueprint/nodes to Claude
+- [ ] **Actor Context** - Selected actors and scene information
+- [ ] **Asset Context** - Current assets and project structure
+- [ ] **Command Enrichment** - Auto-inject UE context into prompts
+
+### 0.3 Advanced Terminal Features
+- [ ] **Multi-tab Support** - Multiple Claude sessions
+- [ ] **Split View** - Horizontal/vertical terminal splits
+- [ ] **Search & Filter** - Terminal output search with regex
+- [ ] **Custom Keybindings** - Configurable shortcuts
+- [ ] **Theme System** - Modern, Retro, Matrix, Custom themes
+
+### 0.4 Deep Engine Integration
+- [ ] **Execute UE Actions** - Parse Claude responses for direct engine actions
+- [ ] **Live Code Preview** - See changes in real-time
+- [ ] **Auto-complete** - Blueprint node suggestions from Claude
+- [ ] **Error Fixing** - Claude suggests fixes for build errors
+
 ## Phase 1: Core Enhancements (Next Sprint)
 
 ### 1.1 Asset Management Tools (from runreal/unreal-mcp)
@@ -125,10 +153,11 @@ Create the most comprehensive Unreal Engine MCP integration by aggregating the b
 ## Implementation Strategy
 
 ### Priority Order
-1. **High Value, Low Effort**: Asset management, world tools
-2. **High Impact**: Materials, lighting, post-processing
-3. **Game Changer**: Niagara, animation, audio
-4. **Advanced**: AI, physics, procedural generation
+1. **Game Changer**: Claude Terminal Integration - transforms development workflow
+2. **High Value, Low Effort**: Asset management, world tools
+3. **High Impact**: Materials, lighting, post-processing
+4. **Advanced Systems**: Niagara, animation, audio
+5. **Complex Features**: AI, physics, procedural generation
 
 ### Technical Approach
 1. **Dual Mode Support**: Both C++ plugin and Python-only modes
@@ -157,12 +186,14 @@ Create the most comprehensive Unreal Engine MCP integration by aggregating the b
 - Documentation quality score
 
 ## Timeline
-- **Month 1**: Phase 1 (Core Enhancements)
-- **Month 2**: Phase 2 (Materials & Visuals)
-- **Month 3**: Phase 3 (Advanced Systems)
-- **Month 4**: Phase 4 (AI & Gameplay)
-- **Month 5**: Phase 5 (Code Intelligence)
-- **Month 6**: Phase 6 (Advanced Automation)
+- **Weeks 1-8**: Phase 0 (Claude Terminal MVP)
+- **Weeks 9-16**: Phase 0 Extended (Terminal Polish & Advanced Features)
+- **Month 3**: Phase 1 (Core Enhancements)
+- **Month 4**: Phase 2 (Materials & Visuals)
+- **Month 5**: Phase 3 (Advanced Systems)
+- **Month 6**: Phase 4 (AI & Gameplay)
+- **Month 7**: Phase 5 (Code Intelligence)
+- **Month 8**: Phase 6 (Advanced Automation)
 
 ---
 

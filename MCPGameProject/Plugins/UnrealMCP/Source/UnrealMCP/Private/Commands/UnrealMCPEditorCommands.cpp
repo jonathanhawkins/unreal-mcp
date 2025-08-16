@@ -3,10 +3,16 @@
 #include "Editor.h"
 #include "EditorViewportClient.h"
 #include "LevelEditorViewport.h"
+#include "LevelEditor.h"
 #include "ImageUtils.h"
 #include "HighResScreenshot.h"
 #include "Engine/GameViewportClient.h"
 #include "Misc/FileHelper.h"
+#include "Misc/Paths.h"
+#include "HAL/PlatformFilemanager.h"
+#include "HAL/PlatformProcess.h"
+#include "UnrealClient.h"
+#include "EngineDefines.h"
 #include "GameFramework/Actor.h"
 #include "Engine/Selection.h"
 #include "Kismet/GameplayStatics.h"
@@ -95,7 +101,7 @@ TSharedPtr<FJsonObject> FUnrealMCPEditorCommands::HandleGetActorsInLevel(const T
     TSharedPtr<FJsonObject> ResultObj = MakeShared<FJsonObject>();
     ResultObj->SetArrayField(TEXT("actors"), ActorArray);
     
-    return ResultObj;
+    return FUnrealMCPCommonUtils::CreateSuccessResponse(ResultObj);
 }
 
 TSharedPtr<FJsonObject> FUnrealMCPEditorCommands::HandleFindActorsByName(const TSharedPtr<FJsonObject>& Params)
@@ -112,7 +118,8 @@ TSharedPtr<FJsonObject> FUnrealMCPEditorCommands::HandleFindActorsByName(const T
     TArray<TSharedPtr<FJsonValue>> MatchingActors;
     for (AActor* Actor : AllActors)
     {
-        if (Actor && Actor->GetName().Contains(Pattern))
+        // Search by both internal name and actor label (display name)
+        if (Actor && (Actor->GetName().Contains(Pattern) || Actor->GetActorLabel().Contains(Pattern)))
         {
             MatchingActors.Add(FUnrealMCPCommonUtils::ActorToJson(Actor));
         }
@@ -167,12 +174,12 @@ TSharedPtr<FJsonObject> FUnrealMCPEditorCommands::HandleSpawnActor(const TShared
         return FUnrealMCPCommonUtils::CreateErrorResponse(TEXT("Failed to get editor world"));
     }
 
-    // Check if an actor with this name already exists
+    // Check if an actor with this name already exists (check both internal name and label)
     TArray<AActor*> AllActors;
     UGameplayStatics::GetAllActorsOfClass(World, AActor::StaticClass(), AllActors);
     for (AActor* Actor : AllActors)
     {
-        if (Actor && Actor->GetName() == ActorName)
+        if (Actor && (Actor->GetName() == ActorName || Actor->GetActorLabel() == ActorName))
         {
             return FUnrealMCPCommonUtils::CreateErrorResponse(FString::Printf(TEXT("Actor with name '%s' already exists"), *ActorName));
         }
@@ -190,6 +197,12 @@ TSharedPtr<FJsonObject> FUnrealMCPEditorCommands::HandleSpawnActor(const TShared
         // This fix adds support for the "static_mesh" parameter and defaults to cube if not specified
         if (NewActor)
         {
+            // CRITICAL FIX: Set the scale FIRST before setting the mesh
+            // If scale is left at default (0,0,0) the mesh won't be visible
+            FTransform Transform = NewActor->GetTransform();
+            Transform.SetScale3D(Scale);
+            NewActor->SetActorTransform(Transform);
+            
             AStaticMeshActor* MeshActor = Cast<AStaticMeshActor>(NewActor);
             if (MeshActor && MeshActor->GetStaticMeshComponent())
             {
@@ -243,10 +256,17 @@ TSharedPtr<FJsonObject> FUnrealMCPEditorCommands::HandleSpawnActor(const TShared
 
     if (NewActor)
     {
-        // Set scale (since SpawnActor only takes location and rotation)
-        FTransform Transform = NewActor->GetTransform();
-        Transform.SetScale3D(Scale);
-        NewActor->SetActorTransform(Transform);
+        // Set scale for non-StaticMeshActors (StaticMeshActors have scale set earlier)
+        if (ActorType != TEXT("StaticMeshActor"))
+        {
+            FTransform Transform = NewActor->GetTransform();
+            Transform.SetScale3D(Scale);
+            NewActor->SetActorTransform(Transform);
+        }
+
+        // Set the actor label to display the proper name in the World Outliner
+        // This is different from the internal object name and is what users see in the editor
+        NewActor->SetActorLabel(ActorName);
 
         // Return the created actor's details
         return FUnrealMCPCommonUtils::ActorToJsonObject(NewActor, true);
@@ -268,7 +288,8 @@ TSharedPtr<FJsonObject> FUnrealMCPEditorCommands::HandleDeleteActor(const TShare
     
     for (AActor* Actor : AllActors)
     {
-        if (Actor && Actor->GetName() == ActorName)
+        // Check both internal name and actor label (display name)
+        if (Actor && (Actor->GetName() == ActorName || Actor->GetActorLabel() == ActorName))
         {
             // Store actor info before deletion for the response
             TSharedPtr<FJsonObject> ActorInfo = FUnrealMCPCommonUtils::ActorToJsonObject(Actor);
@@ -301,7 +322,8 @@ TSharedPtr<FJsonObject> FUnrealMCPEditorCommands::HandleSetActorTransform(const 
     
     for (AActor* Actor : AllActors)
     {
-        if (Actor && Actor->GetName() == ActorName)
+        // Check both internal name and actor label (display name)
+        if (Actor && (Actor->GetName() == ActorName || Actor->GetActorLabel() == ActorName))
         {
             TargetActor = Actor;
             break;
@@ -352,7 +374,8 @@ TSharedPtr<FJsonObject> FUnrealMCPEditorCommands::HandleGetActorProperties(const
     
     for (AActor* Actor : AllActors)
     {
-        if (Actor && Actor->GetName() == ActorName)
+        // Check both internal name and actor label (display name)
+        if (Actor && (Actor->GetName() == ActorName || Actor->GetActorLabel() == ActorName))
         {
             TargetActor = Actor;
             break;
@@ -384,7 +407,8 @@ TSharedPtr<FJsonObject> FUnrealMCPEditorCommands::HandleSetActorProperty(const T
     
     for (AActor* Actor : AllActors)
     {
-        if (Actor && Actor->GetName() == ActorName)
+        // Check both internal name and actor label (display name)
+        if (Actor && (Actor->GetName() == ActorName || Actor->GetActorLabel() == ActorName))
         {
             TargetActor = Actor;
             break;
@@ -604,32 +628,142 @@ TSharedPtr<FJsonObject> FUnrealMCPEditorCommands::HandleTakeScreenshot(const TSh
         return FUnrealMCPCommonUtils::CreateErrorResponse(TEXT("Missing 'filepath' parameter"));
     }
     
-    // Ensure the file path has a proper extension
-    if (!FilePath.EndsWith(TEXT(".png")))
+    // Process the file path
+    FString ResolvedPath;
+    
+    // Check if path is absolute
+    if (FPaths::IsRelative(FilePath))
     {
-        FilePath += TEXT(".png");
+        // For relative paths, use the project's Saved/Screenshots directory
+        FString FileName = FPaths::GetCleanFilename(FilePath);
+        if (FileName.IsEmpty())
+        {
+            FileName = FilePath;
+        }
+        
+        // Default to Saved/Screenshots directory
+        ResolvedPath = FPaths::ProjectSavedDir() / TEXT("Screenshots") / FileName;
+        
+        // Create the Screenshots directory if it doesn't exist
+        FString ScreenshotDir = FPaths::ProjectSavedDir() / TEXT("Screenshots");
+        if (!FPaths::DirectoryExists(ScreenshotDir))
+        {
+            IFileManager::Get().MakeDirectory(*ScreenshotDir, true);
+        }
     }
-
-    // Get the active viewport
-    if (GEditor && GEditor->GetActiveViewport())
+    else
     {
-        FViewport* Viewport = GEditor->GetActiveViewport();
+        // Use the absolute path as-is
+        ResolvedPath = FilePath;
+        
+        // Create parent directory if it doesn't exist
+        FString ParentDir = FPaths::GetPath(ResolvedPath);
+        if (!ParentDir.IsEmpty() && !FPaths::DirectoryExists(ParentDir))
+        {
+            IFileManager::Get().MakeDirectory(*ParentDir, true);
+        }
+    }
+    
+    // Ensure the file path has a proper extension
+    if (!ResolvedPath.EndsWith(TEXT(".png")))
+    {
+        ResolvedPath += TEXT(".png");
+    }
+    
+    // Convert to absolute path for file operations
+    ResolvedPath = FPaths::ConvertRelativePathToFull(ResolvedPath);
+    
+    // Log the resolved path for debugging
+    UE_LOG(LogTemp, Log, TEXT("Taking screenshot to: %s"), *ResolvedPath);
+
+    // Try to get the level editor viewport client for proper rendering
+    FLevelEditorViewportClient* ViewportClient = nullptr;
+    for (FLevelEditorViewportClient* LevelVC : GEditor->GetLevelViewportClients())
+    {
+        if (LevelVC && LevelVC->Viewport && LevelVC->IsVisible())
+        {
+            ViewportClient = LevelVC;
+            break;
+        }
+    }
+    
+    if (ViewportClient && ViewportClient->Viewport)
+    {
+        FViewport* Viewport = ViewportClient->Viewport;
+        
+        // CRITICAL: Set the viewport to Lit mode (VMI_Lit = 3) for proper rendering
+        // This ensures we capture the rendered scene, not wireframe or unlit view
+        EViewModeIndex CurrentViewMode = ViewportClient->GetViewMode();
+        if (CurrentViewMode != VMI_Lit)
+        {
+            ViewportClient->SetViewMode(VMI_Lit);
+            UE_LOG(LogTemp, Log, TEXT("Switched viewport from mode %d to Lit mode for screenshot"), (int)CurrentViewMode);
+        }
+        
+        // Force a redraw to ensure we have the latest rendered frame in Lit mode
+        ViewportClient->Invalidate();
+        ViewportClient->RedrawRequested(Viewport);
+        
+        // Give the viewport a moment to update after mode change
+        FPlatformProcess::Sleep(0.1f);
+        
+        // Use ReadPixels to capture the viewport
         TArray<FColor> Bitmap;
         FIntRect ViewportRect(0, 0, Viewport->GetSizeXY().X, Viewport->GetSizeXY().Y);
         
         if (Viewport->ReadPixels(Bitmap, FReadSurfaceDataFlags(), ViewportRect))
         {
-            TArray<uint8> CompressedBitmap;
-            FImageUtils::CompressImageArray(Viewport->GetSizeXY().X, Viewport->GetSizeXY().Y, Bitmap, CompressedBitmap);
-            
-            if (FFileHelper::SaveArrayToFile(CompressedBitmap, *FilePath))
+            // Check if we got valid pixel data (not all gray/black)
+            bool bHasValidPixels = false;
+            for (int32 i = 0; i < FMath::Min(100, Bitmap.Num()); i++)
             {
-                TSharedPtr<FJsonObject> ResultObj = MakeShared<FJsonObject>();
-                ResultObj->SetStringField(TEXT("filepath"), FilePath);
-                return ResultObj;
+                if (Bitmap[i].R != Bitmap[0].R || Bitmap[i].G != Bitmap[0].G || Bitmap[i].B != Bitmap[0].B)
+                {
+                    bHasValidPixels = true;
+                    break;
+                }
             }
+            
+            if (bHasValidPixels)
+            {
+                TArray64<uint8> CompressedBitmap;
+                FImageUtils::PNGCompressImageArray(Viewport->GetSizeXY().X, Viewport->GetSizeXY().Y, TArrayView64<const FColor>(Bitmap), CompressedBitmap);
+                
+                if (FFileHelper::SaveArrayToFile(CompressedBitmap, *ResolvedPath))
+                {
+                    TSharedPtr<FJsonObject> ResultObj = MakeShared<FJsonObject>();
+                    ResultObj->SetBoolField(TEXT("success"), true);
+                    ResultObj->SetStringField(TEXT("filepath"), ResolvedPath);
+                    ResultObj->SetNumberField(TEXT("size"), CompressedBitmap.Num());
+                    ResultObj->SetNumberField(TEXT("width"), Viewport->GetSizeXY().X);
+                    ResultObj->SetNumberField(TEXT("height"), Viewport->GetSizeXY().Y);
+                    return FUnrealMCPCommonUtils::CreateSuccessResponse(ResultObj);
+                }
+            }
+            else
+            {
+                UE_LOG(LogTemp, Warning, TEXT("Screenshot appears to be uniform color, trying alternative method"));
+            }
+        }
+        
+        // Alternative method: Use the screenshot request system
+        FScreenshotRequest::RequestScreenshot(ResolvedPath, false, false);
+        
+        // Wait for the screenshot to complete
+        FPlatformProcess::Sleep(0.5f);
+        
+        // Check if file was created
+        if (FPaths::FileExists(ResolvedPath))
+        {
+            int64 FileSize = IFileManager::Get().FileSize(*ResolvedPath);
+            
+            TSharedPtr<FJsonObject> ResultObj = MakeShared<FJsonObject>();
+            ResultObj->SetBoolField(TEXT("success"), true);
+            ResultObj->SetStringField(TEXT("filepath"), ResolvedPath);
+            ResultObj->SetNumberField(TEXT("size"), FileSize);
+            return FUnrealMCPCommonUtils::CreateSuccessResponse(ResultObj);
         }
     }
     
-    return FUnrealMCPCommonUtils::CreateErrorResponse(TEXT("Failed to take screenshot"));
+    return FUnrealMCPCommonUtils::CreateErrorResponse(TEXT("Failed to take screenshot - no active viewport found"));
 } 

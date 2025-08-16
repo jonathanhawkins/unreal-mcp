@@ -1,0 +1,108 @@
+# Pre-commit hooks for Unreal MCP project
+# Ensures code quality and test coverage before commits
+
+repos:
+  # Python code formatting
+  - repo: https://github.com/psf/black
+    rev: 23.3.0
+    hooks:
+      - id: black
+        language_version: python3.11
+        files: \.py$
+        args: ['--line-length=100']
+
+  # Python import sorting
+  - repo: https://github.com/PyCQA/isort
+    rev: 5.12.0
+    hooks:
+      - id: isort
+        args: ['--profile', 'black', '--line-length', '100']
+
+  # Python linting
+  - repo: https://github.com/PyCQA/flake8
+    rev: 6.0.0
+    hooks:
+      - id: flake8
+        args: ['--max-line-length=100', '--ignore=E203,W503']
+        exclude: ^tests/templates/
+
+  # Check for missing tests
+  - repo: local
+    hooks:
+      - id: check-test-coverage
+        name: Check test coverage for new commands
+        entry: python scripts/check_test_coverage.py
+        language: python
+        files: 'Commands/.*\.cpp$'
+        pass_filenames: true
+
+      - id: validate-test-structure
+        name: Validate test follows template
+        entry: python scripts/validate_test_structure.py
+        language: python
+        files: 'tests/.*test.*\.py$'
+        pass_filenames: true
+
+      - id: check-test-requirements
+        name: Ensure 5 required test types
+        entry: python scripts/check_test_requirements.py
+        language: python
+        files: 'tests/.*test.*\.py$'
+        pass_filenames: true
+
+  # C++ formatting
+  - repo: https://github.com/pre-commit/mirrors-clang-format
+    rev: v16.0.0
+    hooks:
+      - id: clang-format
+        files: \.(cpp|h)$
+        args: ['-i', '--style=file']
+
+  # General file checks
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v4.4.0
+    hooks:
+      - id: trailing-whitespace
+      - id: end-of-file-fixer
+      - id: check-yaml
+      - id: check-json
+      - id: check-added-large-files
+        args: ['--maxkb=1000']
+      - id: check-merge-conflict
+      - id: mixed-line-ending
+        args: ['--fix=lf']
+
+  # Documentation checks
+  - repo: https://github.com/pre-commit/pygrep-hooks
+    rev: v1.10.0
+    hooks:
+      - id: python-no-eval
+      - id: python-no-log-warn
+      - id: text-unicode-replacement-char
+
+  # Security checks
+  - repo: https://github.com/PyCQA/bandit
+    rev: 1.7.5
+    hooks:
+      - id: bandit
+        args: ['-ll', '--skip', 'B101,B601']
+        files: \.py$
+        exclude: ^tests/
+
+# Custom local hooks configuration
+- repo: local
+  hooks:
+    - id: no-direct-push-to-main
+      name: Prevent direct push to main
+      entry: python scripts/prevent_main_push.py
+      language: python
+      pass_filenames: false
+      always_run: true
+      stages: [push]
+
+    - id: test-doc-sync
+      name: Ensure test docs are updated
+      entry: python scripts/check_test_docs.py
+      language: python
+      files: '(tests/.*\.py|TEST_COVERAGE_REPORT\.md)$'
+      pass_filenames: true

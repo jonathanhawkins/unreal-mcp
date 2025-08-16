@@ -5,6 +5,8 @@
 #include "HAL/RunnableThread.h"
 #include "Interfaces/IPv4/IPv4Address.h"
 #include "Interfaces/IPv4/IPv4Endpoint.h"
+#include "Misc/CommandLine.h"
+#include "Misc/Parse.h"
 #include "Dom/JsonObject.h"
 #include "Dom/JsonValue.h"
 #include "Serialization/JsonSerializer.h"
@@ -48,6 +50,10 @@
 #include "K2Node_InputAction.h"
 #include "K2Node_Self.h"
 #include "GameFramework/InputSettings.h"
+// Asset Commands
+#include "Commands/Editor/AssetTools/UnrealMCPAssetCommands.h"
+#include "Commands/Editor/AssetTools/UnrealMCPContentBrowserCommands.h"
+#include "Commands/Editor/AssetTools/UnrealMCPAssetRegistryCommands.h"
 #include "EditorSubsystem.h"
 #include "Subsystems/EditorActorSubsystem.h"
 // Include our new command handler classes
@@ -57,6 +63,10 @@
 #include "Commands/UnrealMCPProjectCommands.h"
 #include "Commands/UnrealMCPCommonUtils.h"
 #include "Commands/UnrealMCPUMGCommands.h"
+// Include the new reorganized command handlers
+#include "Commands/Editor/LevelEditor/UnrealMCPLevelCommands.h"
+#include "Commands/Editor/Landscape/UnrealMCPLandscapeCommands.h"
+#include "Commands/Engine/World/UnrealMCPWorldCommands.h"
 
 // Default settings
 // FIX: Changed from "127.0.0.1" to "0.0.0.0" to allow connections from all network interfaces
@@ -72,6 +82,10 @@ UUnrealMCPBridge::UUnrealMCPBridge()
     BlueprintNodeCommands = MakeShared<FUnrealMCPBlueprintNodeCommands>();
     ProjectCommands = MakeShared<FUnrealMCPProjectCommands>();
     UMGCommands = MakeShared<FUnrealMCPUMGCommands>();
+    // Initialize the new command handlers
+    LevelCommands = MakeShared<FUnrealMCPLevelCommands>();
+    LandscapeCommands = MakeShared<FUnrealMCPLandscapeCommands>();
+    WorldCommands = MakeShared<FUnrealMCPWorldCommands>();
 }
 
 UUnrealMCPBridge::~UUnrealMCPBridge()
@@ -81,6 +95,10 @@ UUnrealMCPBridge::~UUnrealMCPBridge()
     BlueprintNodeCommands.Reset();
     ProjectCommands.Reset();
     UMGCommands.Reset();
+    // Clean up the new command handlers
+    LevelCommands.Reset();
+    LandscapeCommands.Reset();
+    WorldCommands.Reset();
 }
 
 // Initialize subsystem
@@ -94,6 +112,32 @@ void UUnrealMCPBridge::Initialize(FSubsystemCollectionBase& Collection)
     ServerThread = nullptr;
     Port = MCP_SERVER_PORT;
     FIPv4Address::Parse(MCP_SERVER_HOST, ServerAddress);
+
+    // Parse command line arguments
+    FString BindAddress = MCP_SERVER_HOST;
+    int32 BindPort = MCP_SERVER_PORT;
+    
+    // Check for command line overrides
+    FString CommandLine = FCommandLine::Get();
+    FString BindValue;
+    if (FParse::Value(*CommandLine, TEXT("-UnrealMCPBind="), BindValue))
+    {
+        BindAddress = BindValue;
+        UE_LOG(LogTemp, Display, TEXT("UnrealMCPBridge: Using command line bind address: %s"), *BindAddress);
+    }
+    
+    FString PortValue;
+    if (FParse::Value(*CommandLine, TEXT("-UnrealMCPPort="), PortValue))
+    {
+        BindPort = FCString::Atoi(*PortValue);
+        UE_LOG(LogTemp, Display, TEXT("UnrealMCPBridge: Using command line port: %d"), BindPort);
+    }
+    
+    // Update settings with parsed values
+    Port = BindPort;
+    FIPv4Address::Parse(*BindAddress, ServerAddress);
+    
+    UE_LOG(LogTemp, Display, TEXT("UnrealMCPBridge: Will bind to %s:%d"), *ServerAddress.ToString(), Port);
 
     // Start the server automatically
     StartServer();
@@ -280,6 +324,67 @@ FString UUnrealMCPBridge::ExecuteCommand(const FString& CommandType, const TShar
                      CommandType == TEXT("add_widget_to_viewport"))
             {
                 ResultJson = UMGCommands->HandleCommand(CommandType, Params);
+            }
+            // Asset Tools Commands
+            else if (CommandType == TEXT("load_asset") ||
+                     CommandType == TEXT("save_asset") ||
+                     CommandType == TEXT("duplicate_asset") ||
+                     CommandType == TEXT("delete_asset") ||
+                     CommandType == TEXT("rename_asset") ||
+                     CommandType == TEXT("move_asset") ||
+                     CommandType == TEXT("import_asset") ||
+                     CommandType == TEXT("export_asset"))
+            {
+                FString Response = FUnrealMCPAssetCommands::HandleCommand(CommandType, Params);
+                TSharedRef<TJsonReader<>> Reader = TJsonReaderFactory<>::Create(Response);
+                FJsonSerializer::Deserialize(Reader, ResultJson);
+            }
+            // Content Browser Commands
+            else if (CommandType == TEXT("list_assets") ||
+                     CommandType == TEXT("get_asset_metadata") ||
+                     CommandType == TEXT("search_assets"))
+            {
+                FString Response = FUnrealMCPContentBrowserCommands::HandleCommand(CommandType, Params);
+                TSharedRef<TJsonReader<>> Reader = TJsonReaderFactory<>::Create(Response);
+                FJsonSerializer::Deserialize(Reader, ResultJson);
+            }
+            // Asset Registry Commands
+            else if (CommandType == TEXT("get_asset_references") ||
+                     CommandType == TEXT("get_asset_dependencies"))
+            {
+                FString Response = FUnrealMCPAssetRegistryCommands::HandleCommand(CommandType, Params);
+                TSharedRef<TJsonReader<>> Reader = TJsonReaderFactory<>::Create(Response);
+                FJsonSerializer::Deserialize(Reader, ResultJson);
+            }
+            // Level Editor Commands
+            else if (CommandType == TEXT("create_level") ||
+                     CommandType == TEXT("save_level") ||
+                     CommandType == TEXT("load_level") ||
+                     CommandType == TEXT("set_level_visibility") ||
+                     CommandType == TEXT("create_streaming_level") ||
+                     CommandType == TEXT("load_streaming_level") ||
+                     CommandType == TEXT("unload_streaming_level"))
+            {
+                FString Response = FUnrealMCPLevelCommands::HandleCommand(CommandType, Params);
+                TSharedRef<TJsonReader<>> Reader = TJsonReaderFactory<>::Create(Response);
+                FJsonSerializer::Deserialize(Reader, ResultJson);
+            }
+            // Landscape Commands
+            else if (CommandType == TEXT("create_landscape") ||
+                     CommandType == TEXT("modify_landscape") ||
+                     CommandType == TEXT("paint_landscape_layer") ||
+                     CommandType == TEXT("get_landscape_info"))
+            {
+                FString Response = FUnrealMCPLandscapeCommands::HandleCommand(CommandType, Params);
+                TSharedRef<TJsonReader<>> Reader = TJsonReaderFactory<>::Create(Response);
+                FJsonSerializer::Deserialize(Reader, ResultJson);
+            }
+            // World Commands (Runtime operations)
+            else if (CommandType == TEXT("get_current_level_info"))
+            {
+                FString Response = FUnrealMCPWorldCommands::HandleCommand(CommandType, Params);
+                TSharedRef<TJsonReader<>> Reader = TJsonReaderFactory<>::Create(Response);
+                FJsonSerializer::Deserialize(Reader, ResultJson);
             }
             else
             {

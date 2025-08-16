@@ -37,7 +37,10 @@ def send_command(command: str, params: Dict[str, Any]) -> Optional[Dict[str, Any
     try:
         # Create new socket connection
         sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        sock.connect(("127.0.0.1", 55557))
+        # Use environment variables or defaults
+        host = os.environ.get("UNREAL_HOST", "127.0.0.1")
+        port = int(os.environ.get("UNREAL_PORT", "55557"))
+        sock.connect((host, port))
         
         try:
             # Create command object

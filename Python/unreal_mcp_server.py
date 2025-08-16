@@ -8,6 +8,7 @@ import logging
 import socket
 import sys
 import json
+import argparse
 from contextlib import asynccontextmanager
 from typing import AsyncIterator, Dict, Any, Optional
 from mcp.server.fastmcp import FastMCP
@@ -23,10 +24,16 @@ logging.basicConfig(
 )
 logger = logging.getLogger("UnrealMCP")
 
-# Configuration
+# Parse command line arguments
+parser = argparse.ArgumentParser(description='Unreal Engine MCP Server')
+parser.add_argument('--unreal_host', '--unreal-host', type=str, help='Unreal Engine host address')
+parser.add_argument('--unreal_port', '--unreal-port', type=int, help='Unreal Engine port')
+args, unknown = parser.parse_known_args()
+
+# Configuration - check args first, then env vars, then defaults
 import os
-UNREAL_HOST = os.environ.get("UNREAL_HOST", "127.0.0.1")  # Default to localhost, override with env var for WSL2
-UNREAL_PORT = int(os.environ.get("UNREAL_PORT", "55557"))
+UNREAL_HOST = args.unreal_host or os.environ.get("UNREAL_HOST", "127.0.0.1")
+UNREAL_PORT = args.unreal_port or int(os.environ.get("UNREAL_PORT", "55557"))
 
 class UnrealConnection:
     """Connection to an Unreal Engine instance."""
@@ -262,7 +269,6 @@ async def server_lifespan(server: FastMCP) -> AsyncIterator[Dict[str, Any]]:
 # Initialize server
 mcp = FastMCP(
     "UnrealMCP",
-    description="Unreal Engine integration via Model Context Protocol",
     lifespan=server_lifespan
 )
 
@@ -272,13 +278,26 @@ from tools.blueprint_tools import register_blueprint_tools
 from tools.node_tools import register_blueprint_node_tools
 from tools.project_tools import register_project_tools
 from tools.umg_tools import register_umg_tools
+from tools.editor.asset_tools.asset_tools import register_tools as register_asset_tools
+from tools.editor.asset_tools.content_browser_tools import register_tools as register_content_browser_tools
+from tools.editor.asset_tools.asset_registry_tools import register_tools as register_asset_registry_tools
+# Import the new reorganized tool modules
+from tools.editor.level_editor.level_tools import register_level_tools
+from tools.editor.landscape.landscape_tools import register_landscape_tools
+from tools.engine.world.world_tools import register_world_tools
 
 # Register tools
 register_editor_tools(mcp)
 register_blueprint_tools(mcp)
 register_blueprint_node_tools(mcp)
 register_project_tools(mcp)
-register_umg_tools(mcp)  
+register_umg_tools(mcp)
+register_asset_tools(mcp, None)  # Will be updated with connection during runtime
+register_content_browser_tools(mcp, None)  # Will be updated with connection during runtime
+register_asset_registry_tools(mcp, None)  # Will be updated with connection during runtime
+register_level_tools(mcp)
+register_landscape_tools(mcp)
+register_world_tools(mcp)  
 
 @mcp.prompt()
 def info():
@@ -374,5 +393,5 @@ def info():
 
 # Run the server
 if __name__ == "__main__":
-    logger.info("Starting MCP server with stdio transport")
+    logger.info(f"Starting MCP server with stdio transport - Unreal host: {UNREAL_HOST}:{UNREAL_PORT}")
     mcp.run(transport='stdio') 

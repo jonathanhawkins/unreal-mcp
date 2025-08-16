@@ -1,10 +1,16 @@
 # Unreal MCP
 Python/unreal_mcp.log
+unreal_mcp.log
+*.log
+Python/*.log
+# Don't ignore mcp.json - it's needed for configuration
+# mcp.json
 
 # AI-related files
 .cursorrules
 .cursorignore
-CLAUDE.md
+# Don't ignore CLAUDE.md - it's project documentation
+# CLAUDE.md
 
 # Code-copy related files
 .codeignore

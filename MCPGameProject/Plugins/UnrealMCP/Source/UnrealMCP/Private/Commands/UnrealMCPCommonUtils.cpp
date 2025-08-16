@@ -42,7 +42,7 @@ TSharedPtr<FJsonObject> FUnrealMCPCommonUtils::CreateSuccessResponse(const TShar
     
     if (Data.IsValid())
     {
-        ResponseObject->SetObjectField(TEXT("data"), Data);
+        ResponseObject->SetObjectField(TEXT("result"), Data);
     }
     
     return ResponseObject;
@@ -114,12 +114,28 @@ FVector FUnrealMCPCommonUtils::GetVectorFromJson(const TSharedPtr<FJsonObject>& 
         return Result;
     }
     
+    // Try array format first: [x, y, z]
     const TArray<TSharedPtr<FJsonValue>>* JsonArray;
     if (JsonObject->TryGetArrayField(FieldName, JsonArray) && JsonArray->Num() >= 3)
     {
         Result.X = (float)(*JsonArray)[0]->AsNumber();
         Result.Y = (float)(*JsonArray)[1]->AsNumber();
         Result.Z = (float)(*JsonArray)[2]->AsNumber();
+    }
+    // Try object format: {x: value, y: value, z: value}
+    else
+    {
+        const TSharedPtr<FJsonObject>* VectorObject;
+        if (JsonObject->TryGetObjectField(FieldName, VectorObject))
+        {
+            double X = 0.0, Y = 0.0, Z = 0.0;
+            (*VectorObject)->TryGetNumberField(TEXT("x"), X);
+            (*VectorObject)->TryGetNumberField(TEXT("y"), Y);
+            (*VectorObject)->TryGetNumberField(TEXT("z"), Z);
+            Result.X = (float)X;
+            Result.Y = (float)Y;
+            Result.Z = (float)Z;
+        }
     }
     
     return Result;
@@ -134,12 +150,43 @@ FRotator FUnrealMCPCommonUtils::GetRotatorFromJson(const TSharedPtr<FJsonObject>
         return Result;
     }
     
+    // Try array format first: [pitch, yaw, roll] or [x, y, z]
     const TArray<TSharedPtr<FJsonValue>>* JsonArray;
     if (JsonObject->TryGetArrayField(FieldName, JsonArray) && JsonArray->Num() >= 3)
     {
         Result.Pitch = (float)(*JsonArray)[0]->AsNumber();
         Result.Yaw = (float)(*JsonArray)[1]->AsNumber();
         Result.Roll = (float)(*JsonArray)[2]->AsNumber();
+    }
+    // Try object format: {pitch: value, yaw: value, roll: value} or {x: value, y: value, z: value}
+    else
+    {
+        const TSharedPtr<FJsonObject>* RotatorObject;
+        if (JsonObject->TryGetObjectField(FieldName, RotatorObject))
+        {
+            double Pitch = 0.0, Yaw = 0.0, Roll = 0.0;
+            
+            // Try pitch/yaw/roll first
+            if ((*RotatorObject)->TryGetNumberField(TEXT("pitch"), Pitch) &&
+                (*RotatorObject)->TryGetNumberField(TEXT("yaw"), Yaw) &&
+                (*RotatorObject)->TryGetNumberField(TEXT("roll"), Roll))
+            {
+                Result.Pitch = (float)Pitch;
+                Result.Yaw = (float)Yaw;
+                Result.Roll = (float)Roll;
+            }
+            // Fall back to x/y/z
+            else
+            {
+                double X = 0.0, Y = 0.0, Z = 0.0;
+                (*RotatorObject)->TryGetNumberField(TEXT("x"), X);
+                (*RotatorObject)->TryGetNumberField(TEXT("y"), Y);
+                (*RotatorObject)->TryGetNumberField(TEXT("z"), Z);
+                Result.Pitch = (float)X;
+                Result.Yaw = (float)Y;
+                Result.Roll = (float)Z;
+            }
+        }
     }
     
     return Result;
@@ -427,6 +474,7 @@ TSharedPtr<FJsonValue> FUnrealMCPCommonUtils::ActorToJson(AActor* Actor)
     
     TSharedPtr<FJsonObject> ActorObject = MakeShared<FJsonObject>();
     ActorObject->SetStringField(TEXT("name"), Actor->GetName());
+    ActorObject->SetStringField(TEXT("label"), Actor->GetActorLabel());  // Display name in World Outliner
     ActorObject->SetStringField(TEXT("class"), Actor->GetClass()->GetName());
     
     FVector Location = Actor->GetActorLocation();
@@ -462,6 +510,7 @@ TSharedPtr<FJsonObject> FUnrealMCPCommonUtils::ActorToJsonObject(AActor* Actor, 
     
     TSharedPtr<FJsonObject> ActorObject = MakeShared<FJsonObject>();
     ActorObject->SetStringField(TEXT("name"), Actor->GetName());
+    ActorObject->SetStringField(TEXT("label"), Actor->GetActorLabel());  // Display name in World Outliner
     ActorObject->SetStringField(TEXT("class"), Actor->GetClass()->GetName());
     
     FVector Location = Actor->GetActorLocation();
